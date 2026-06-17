@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>PetLife v13 Pro Maps</title>
+<title>PetLife V18 Pro</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
@@ -98,7 +98,13 @@ cursor:pointer;
 margin-top:5px;
 }
 
-/* MOBILE */
+/* VERIFIED BADGE */
+.verified{
+color:#00ff88;
+font-weight:bold;
+font-size:14px;
+}
+
 @media(max-width:768px){
 .app{flex-direction:column;}
 #map{height:55vh;}
@@ -111,7 +117,7 @@ margin-top:5px;
 
 <body>
 
-<header>🐾 PetLife v13 Pro Maps (Google Maps Clone)</header>
+<header>🐾 PetLife V18 – Verificadas + Reviews</header>
 
 <div id="panel">
 <input id="search" placeholder="Buscar veterinaria...">
@@ -139,7 +145,19 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
 
 let markers = [];
 
-/* DATA OPENSTREETMAP */
+/* VETERINARIAS VERIFICADAS */
+const verifiedVetNames = [
+"Veterinaria San Juan",
+"Pet Center",
+"Animal Care",
+"Vet Life"
+];
+
+function isVerified(name){
+return verifiedVetNames.includes(name);
+}
+
+/* OPENSTREETMAP QUERY */
 const query = `
 [out:json][timeout:60];
 (
@@ -148,35 +166,25 @@ node["amenity"="veterinary"](-18,-82,0,-68);
 out center;
 `;
 
-/* FUNCION DATOS INTELIGENTES */
-function smart(tags){
-
-return {
-dir:
-tags["addr:street"] ||
-tags["addr:city"] ||
-"📍 No registrada",
-
-phone:
-tags.phone ||
-tags["contact:phone"] ||
-"📞 No registrado",
-
-hours:
-tags.opening_hours ||
-"🕒 No disponible",
-
-web:
-tags.website || null,
-fb:
-tags.facebook || null,
-ig:
-tags.instagram || null
-};
-
+/* RESEÑAS */
+function getReviews(id){
+return JSON.parse(localStorage.getItem("reviews_"+id) || "[]");
 }
 
-/* CARGA DATOS */
+function saveReview(id, review){
+let data = getReviews(id);
+data.push(review);
+localStorage.setItem("reviews_"+id, JSON.stringify(data));
+}
+
+function getAverage(reviews){
+if(reviews.length === 0) return "0";
+let total = 0;
+reviews.forEach(r=> total += parseInt(r.stars));
+return (total / reviews.length).toFixed(1);
+}
+
+/* CARGA MAPA */
 fetch("https://overpass-api.de/api/interpreter",{
 method:"POST",
 body:query
@@ -204,49 +212,138 @@ markers.push(m);
 
 });
 
-/* SHOW COMPLETO */
+/* MOSTRAR INFO */
 function show(v){
 
 map.setView([v.lat,v.lon],16);
 
-const d = smart(v.tags);
+const t = v.tags || {};
+const vetId = v.lat + "_" + v.lon;
 
-const img = `https://source.unsplash.com/600x400/?veterinary,pet,clinic,${encodeURIComponent(v.name)}`;
+/* DATOS */
+const nombre = v.name;
 
-let redes = "";
+const direccion =
+t["addr:street"] ||
+t["addr:city"] ||
+"📍 Ubicación registrada";
 
-if(d.web) redes += `🌐 <a target="_blank" href="${d.web}">Web</a><br>`;
-if(d.fb) redes += `📘 Facebook<br>`;
-if(d.ig) redes += `📸 Instagram<br>`;
-if(!redes) redes = "🌐 Sin redes registradas";
+const telefono =
+t.phone ||
+"📞 No registrado";
 
+const horario =
+t.opening_hours ||
+"🕒 No disponible";
+
+/* VERIFICADO */
+const verificado = isVerified(nombre);
+
+const title = verificado
+? `🏥 ${nombre} <span class="verified">✔ Verificada</span>`
+: `🏥 ${nombre}`;
+
+/* IMAGEN */
+const img = "https://upload.wikimedia.org/wikipedia/commons/6/65/Veterinary_symbol.svg";
+
+/* RESEÑAS */
+let reviews = getReviews(vetId);
+let avg = getAverage(reviews);
+
+/* UI */
 document.getElementById("info").innerHTML = `
+
 <div class="card">
 
-<img class="vet-img" src="${img}" onerror="this.src='https://source.unsplash.com/600x400/?vet,animal'">
+<img class="vet-img" src="${img}">
 
-<h2>🏥 ${v.name}</h2>
+<h2>${title}</h2>
 
-<p>🐾 Clínica veterinaria registrada en PetLife</p>
+⭐ Promedio: ${avg}/5 (${reviews.length})<br><br>
 
-<hr>
-
-📍 ${d.dir}<br>
-📞 ${d.phone}<br>
-🕒 ${d.hours}<br>
+📍 ${direccion}<br>
+📞 ${telefono}<br>
+🕒 ${horario}<br>
 
 <hr>
 
-<h3>🌐 Redes</h3>
-${redes}
+<h3>⭐ Reseñas</h3>
 
-<a target="_blank"
-href="https://www.google.com/maps?q=${v.lat},${v.lon}">
-<button class="btn">🧭 Cómo llegar</button>
-</a>
+<div id="reviews"></div>
+
+<br>
+
+<input id="name" placeholder="Tu nombre"><br><br>
+
+<select id="stars">
+<option value="5">★★★★★</option>
+<option value="4">★★★★</option>
+<option value="3">★★★</option>
+<option value="2">★★</option>
+<option value="1">★</option>
+</select>
+
+<br><br>
+
+<textarea id="comment" placeholder="Escribe tu reseña"></textarea><br><br>
+
+<button class="btn" onclick="addReview('${vetId}')">Enviar reseña</button>
 
 </div>
+
 `;
+
+showReviews(vetId);
+
+}
+
+/* MOSTRAR RESEÑAS */
+function showReviews(id){
+
+let reviews = getReviews(id);
+
+let html = "";
+
+if(reviews.length === 0){
+html = "No hay reseñas aún";
+}else{
+
+reviews.forEach(r=>{
+html += `
+<div class="card">
+<b>${r.name}</b><br>
+⭐ ${"★".repeat(r.stars)}<br>
+${r.comment}<br>
+<small>${r.date}</small>
+</div>
+`;
+});
+
+}
+
+document.getElementById("reviews").innerHTML = html;
+
+}
+
+/* AGREGAR RESEÑA */
+function addReview(id){
+
+const name = document.getElementById("name").value || "Anonimo";
+const stars = document.getElementById("stars").value;
+const comment = document.getElementById("comment").value;
+
+if(!comment) return;
+
+saveReview(id,{
+name,
+stars,
+comment,
+date: new Date().toLocaleString()
+});
+
+document.getElementById("comment").value = "";
+
+showReviews(id);
 
 }
 
@@ -268,14 +365,7 @@ show(m.data);
 function geo(){
 
 navigator.geolocation.getCurrentPosition(pos=>{
-
 map.setView([pos.coords.latitude,pos.coords.longitude],14);
-
-L.marker([pos.coords.latitude,pos.coords.longitude])
-.addTo(map)
-.bindPopup("📍 Tú estás aquí")
-.openPopup();
-
 });
 
 }
