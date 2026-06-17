@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PetLife V21 - Veterinarias Perú</title>
+<title>PetLife Perú - Veterinarias</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
@@ -71,7 +71,7 @@ width:100%;
 
 <body>
 
-<header>🐾 PetLife V21 - Veterinarias Perú + Reseñas Reales</header>
+<header>🐾 PetLife Perú - Mapa Veterinarias + Reseñas</header>
 
 <div class="container">
 
@@ -79,15 +79,15 @@ width:100%;
 
 <div id="panel">
 
-<h3>📍 Veterinaria seleccionada</h3>
+<h3>📍 Veterinaria</h3>
 <div id="info">Haz clic en un marcador</div>
 
 <hr>
 
-<h3>⭐ Crear reseña</h3>
+<h3>⭐ Reseña</h3>
 
 <textarea id="texto" placeholder="Escribe tu reseña..."></textarea>
-<input id="estrellas" type="number" min="1" max="5" placeholder="Estrellas (1-5)">
+<input id="estrellas" type="number" min="1" max="5" placeholder="Estrellas 1-5">
 <button onclick="guardarResena()">Enviar reseña</button>
 
 <hr>
@@ -99,20 +99,25 @@ width:100%;
 
 </div>
 
+<!-- MAPA -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-<!-- Firebase -->
+<!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
 <script>
 
-/* 🔥 FIREBASE CONFIG */
+/* 🔥 TU FIREBASE (YA CONFIGURADO) */
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
+  apiKey: "AIzaSyAi9BOU-pJq9woc4YOb4_bp_LsjKaDYWrY",
   authDomain: "petlife-bf923.firebaseapp.com",
-  projectId: "petlife-bf923"
+  databaseURL: "https://petlife-bf923-default-rtdb.firebaseio.com",
+  projectId: "petlife-bf923",
+  storageBucket: "petlife-bf923.appspot.com",
+  messagingSenderId: "57850807076",
+  appId: "1:57850807076:web:b968c6c588319bd025e9b1"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -123,7 +128,7 @@ const db = firebase.firestore();
 let userEmail = "";
 let vetActual = "";
 
-/* 🔐 PROTEGER ACCESO */
+/* 🔐 LOGIN OBLIGATORIO */
 auth.onAuthStateChanged(user=>{
 if(!user){
 window.location.href="login.html";
@@ -138,7 +143,7 @@ const map = L.map('map').setView([-9.19,-75.01],6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
 .addTo(map);
 
-/* 🏥 CARGAR VETERINARIAS */
+/* 🏥 VETERINARIAS */
 fetch("https://overpass-api.de/api/interpreter",{
 method:"POST",
 body:`
@@ -158,7 +163,6 @@ if(!lat || !lon) return;
 
 const name = v.tags?.name || "Veterinaria sin nombre";
 
-/* marcador */
 L.marker([lat,lon]).addTo(map)
 .on("click",()=>{
 
@@ -167,7 +171,7 @@ vetActual = name;
 document.getElementById("info").innerHTML = `
 <div class="card">
 <h3>🏥 ${name}</h3>
-<p>📍 Lista para reseñas</p>
+<p>Seleccionada para reseñas</p>
 </div>
 `;
 
@@ -183,7 +187,7 @@ cargarResenas(name);
 function guardarResena(){
 
 if(!vetActual){
-alert("Selecciona una veterinaria primero");
+alert("Selecciona una veterinaria");
 return;
 }
 
@@ -232,7 +236,6 @@ document.getElementById("resenas").innerHTML =
 html || "Sin reseñas aún";
 
 });
-
 }
 
 </script>
