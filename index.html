@@ -3,13 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>PetLife V18 Pro</title>
+<title>PetLife V21 - Veterinarias Perú</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
-
 body{
 margin:0;
 font-family:Arial;
@@ -17,52 +15,24 @@ background:#140f0e;
 color:white;
 }
 
-/* HEADER */
 header{
-background:#3b2f2f;
-color:#ffb347;
-padding:12px;
-text-align:center;
-font-weight:bold;
-}
-
-/* PANEL */
-#panel{
-display:flex;
-gap:6px;
-flex-wrap:wrap;
-justify-content:center;
+background:#2f201d;
 padding:10px;
-background:#241a18;
-position:sticky;
-top:0;
-z-index:1000;
-}
-
-#panel input{
-padding:8px;
-border:none;
-border-radius:8px;
-width:180px;
-}
-
-#panel button{
-padding:8px 10px;
-border:none;
-border-radius:8px;
-background:#ff8c42;
+text-align:center;
+color:#ffb347;
 font-weight:bold;
-cursor:pointer;
 }
 
-/* LAYOUT */
-.app{
+.container{
 display:flex;
-height:80vh;
+height:90vh;
 }
 
-#map{flex:2;}
-#info{
+#map{
+flex:2;
+}
+
+#panel{
 flex:1;
 background:#1f1614;
 padding:10px;
@@ -70,309 +40,199 @@ overflow:auto;
 border-left:2px solid #ff8c42;
 }
 
-/* CARD */
 .card{
 background:#2f201d;
-border:1px solid #ff8c42;
 padding:10px;
-border-radius:12px;
 margin-bottom:10px;
-}
-
-/* IMAGE */
-.vet-img{
-width:100%;
-height:140px;
-object-fit:cover;
 border-radius:10px;
-margin-bottom:8px;
+border:1px solid #ff8c42;
 }
 
-/* BUTTON */
-.btn{
-padding:6px;
-border:none;
+input,textarea{
+width:100%;
+padding:8px;
+margin-top:5px;
 border-radius:6px;
+border:none;
+box-sizing:border-box;
+}
+
+button{
 background:#ff8c42;
+border:none;
+padding:8px;
+border-radius:6px;
 cursor:pointer;
 margin-top:5px;
+width:100%;
 }
-
-/* VERIFIED BADGE */
-.verified{
-color:#00ff88;
-font-weight:bold;
-font-size:14px;
-}
-
-@media(max-width:768px){
-.app{flex-direction:column;}
-#map{height:55vh;}
-#info{height:45vh;}
-}
-
 </style>
-
 </head>
 
 <body>
 
-<header>🐾 PetLife V18 – Verificadas + Reviews</header>
+<header>🐾 PetLife V21 - Veterinarias Perú + Reseñas Reales</header>
+
+<div class="container">
+
+<div id="map"></div>
 
 <div id="panel">
-<input id="search" placeholder="Buscar veterinaria...">
-<button onclick="buscar()">🔍</button>
-<button onclick="reset()">🇵🇪</button>
-<button onclick="geo()">📍 Cerca</button>
+
+<h3>📍 Veterinaria seleccionada</h3>
+<div id="info">Haz clic en un marcador</div>
+
+<hr>
+
+<h3>⭐ Crear reseña</h3>
+
+<textarea id="texto" placeholder="Escribe tu reseña..."></textarea>
+<input id="estrellas" type="number" min="1" max="5" placeholder="Estrellas (1-5)">
+<button onclick="guardarResena()">Enviar reseña</button>
+
+<hr>
+
+<h3>📢 Reseñas</h3>
+<div id="resenas"></div>
+
 </div>
 
-<div class="app">
-<div id="map"></div>
-<div id="info">
-<div class="card">🧠 Selecciona una veterinaria</div>
-</div>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
 <script>
 
-/* MAPA */
-const map = L.map('map').setView([-9.2,-75],6);
+/* 🔥 FIREBASE CONFIG */
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "petlife-bf923.firebaseapp.com",
+  projectId: "petlife-bf923"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let userEmail = "";
+let vetActual = "";
+
+/* 🔐 PROTEGER ACCESO */
+auth.onAuthStateChanged(user=>{
+if(!user){
+window.location.href="login.html";
+}else{
+userEmail = user.email;
+}
+});
+
+/* 🗺️ MAPA */
+const map = L.map('map').setView([-9.19,-75.01],6);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
 .addTo(map);
 
-let markers = [];
-
-/* VETERINARIAS VERIFICADAS */
-const verifiedVetNames = [
-"Veterinaria San Juan",
-"Pet Center",
-"Animal Care",
-"Vet Life"
-];
-
-function isVerified(name){
-return verifiedVetNames.includes(name);
-}
-
-/* OPENSTREETMAP QUERY */
-const query = `
-[out:json][timeout:60];
-(
-node["amenity"="veterinary"](-18,-82,0,-68);
-);
-out center;
-`;
-
-/* RESEÑAS */
-function getReviews(id){
-return JSON.parse(localStorage.getItem("reviews_"+id) || "[]");
-}
-
-function saveReview(id, review){
-let data = getReviews(id);
-data.push(review);
-localStorage.setItem("reviews_"+id, JSON.stringify(data));
-}
-
-function getAverage(reviews){
-if(reviews.length === 0) return "0";
-let total = 0;
-reviews.forEach(r=> total += parseInt(r.stars));
-return (total / reviews.length).toFixed(1);
-}
-
-/* CARGA MAPA */
+/* 🏥 CARGAR VETERINARIAS */
 fetch("https://overpass-api.de/api/interpreter",{
 method:"POST",
-body:query
+body:`
+[out:json];
+node["amenity"="veterinary"](-18,-82,0,-68);
+out;
+`
 })
 .then(r=>r.json())
 .then(data=>{
 
 data.elements.forEach(v=>{
 
-const lat=v.lat||v.center?.lat;
-const lon=v.lon||v.center?.lon;
-if(!lat||!lon) return;
+const lat = v.lat;
+const lon = v.lon;
+if(!lat || !lon) return;
 
-const name=v.tags?.name||"Veterinaria";
+const name = v.tags?.name || "Veterinaria sin nombre";
 
-let m=L.marker([lat,lon]).addTo(map);
+/* marcador */
+L.marker([lat,lon]).addTo(map)
+.on("click",()=>{
 
-m.data={lat,lon,name,tags:v.tags};
+vetActual = name;
 
-m.on("click",()=>show(m.data));
-
-markers.push(m);
-
-});
-
-});
-
-/* MOSTRAR INFO */
-function show(v){
-
-map.setView([v.lat,v.lon],16);
-
-const t = v.tags || {};
-const vetId = v.lat + "_" + v.lon;
-
-/* DATOS */
-const nombre = v.name;
-
-const direccion =
-t["addr:street"] ||
-t["addr:city"] ||
-"📍 Ubicación registrada";
-
-const telefono =
-t.phone ||
-"📞 No registrado";
-
-const horario =
-t.opening_hours ||
-"🕒 No disponible";
-
-/* VERIFICADO */
-const verificado = isVerified(nombre);
-
-const title = verificado
-? `🏥 ${nombre} <span class="verified">✔ Verificada</span>`
-: `🏥 ${nombre}`;
-
-/* IMAGEN */
-const img = "https://upload.wikimedia.org/wikipedia/commons/6/65/Veterinary_symbol.svg";
-
-/* RESEÑAS */
-let reviews = getReviews(vetId);
-let avg = getAverage(reviews);
-
-/* UI */
 document.getElementById("info").innerHTML = `
-
 <div class="card">
-
-<img class="vet-img" src="${img}">
-
-<h2>${title}</h2>
-
-⭐ Promedio: ${avg}/5 (${reviews.length})<br><br>
-
-📍 ${direccion}<br>
-📞 ${telefono}<br>
-🕒 ${horario}<br>
-
-<hr>
-
-<h3>⭐ Reseñas</h3>
-
-<div id="reviews"></div>
-
-<br>
-
-<input id="name" placeholder="Tu nombre"><br><br>
-
-<select id="stars">
-<option value="5">★★★★★</option>
-<option value="4">★★★★</option>
-<option value="3">★★★</option>
-<option value="2">★★</option>
-<option value="1">★</option>
-</select>
-
-<br><br>
-
-<textarea id="comment" placeholder="Escribe tu reseña"></textarea><br><br>
-
-<button class="btn" onclick="addReview('${vetId}')">Enviar reseña</button>
-
+<h3>🏥 ${name}</h3>
+<p>📍 Lista para reseñas</p>
 </div>
-
 `;
 
-showReviews(vetId);
+cargarResenas(name);
 
+});
+
+});
+
+});
+
+/* 💾 GUARDAR RESEÑA */
+function guardarResena(){
+
+if(!vetActual){
+alert("Selecciona una veterinaria primero");
+return;
 }
 
-/* MOSTRAR RESEÑAS */
-function showReviews(id){
+const texto = document.getElementById("texto").value;
+const estrellas = document.getElementById("estrellas").value;
 
-let reviews = getReviews(id);
+if(!texto) return;
 
-let html = "";
+db.collection("resenas").add({
+vet: vetActual,
+user: userEmail,
+texto: texto,
+estrellas: estrellas,
+fecha: new Date().toLocaleString()
+});
 
-if(reviews.length === 0){
-html = "No hay reseñas aún";
-}else{
+document.getElementById("texto").value = "";
+document.getElementById("estrellas").value = "";
 
-reviews.forEach(r=>{
+cargarResenas(vetActual);
+}
+
+/* 📢 CARGAR RESEÑAS */
+function cargarResenas(vet){
+
+db.collection("resenas")
+.where("vet","==",vet)
+.get()
+.then(snapshot=>{
+
+let html="";
+
+snapshot.forEach(doc=>{
+const d = doc.data();
+
 html += `
 <div class="card">
-<b>${r.name}</b><br>
-⭐ ${"★".repeat(r.stars)}<br>
-${r.comment}<br>
-<small>${r.date}</small>
+⭐ ${d.estrellas}/5<br>
+${d.texto}<br>
+👤 ${d.user}
 </div>
 `;
 });
 
-}
+document.getElementById("resenas").innerHTML =
+html || "Sin reseñas aún";
 
-document.getElementById("reviews").innerHTML = html;
-
-}
-
-/* AGREGAR RESEÑA */
-function addReview(id){
-
-const name = document.getElementById("name").value || "Anonimo";
-const stars = document.getElementById("stars").value;
-const comment = document.getElementById("comment").value;
-
-if(!comment) return;
-
-saveReview(id,{
-name,
-stars,
-comment,
-date: new Date().toLocaleString()
 });
 
-document.getElementById("comment").value = "";
-
-showReviews(id);
-
-}
-
-/* BUSCAR */
-function buscar(){
-
-let q = document.getElementById("search").value.toLowerCase();
-
-markers.forEach(m=>{
-if(m.data.name.toLowerCase().includes(q)){
-map.setView([m.data.lat,m.data.lon],16);
-show(m.data);
-}
-});
-
-}
-
-/* GEO */
-function geo(){
-
-navigator.geolocation.getCurrentPosition(pos=>{
-map.setView([pos.coords.latitude,pos.coords.longitude],14);
-});
-
-}
-
-/* RESET */
-function reset(){
-map.setView([-9.2,-75],6);
 }
 
 </script>
