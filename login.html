@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>PetLife Login</title>
+</head>
+
+<body>
+
+<h2>🐾 PetLife Login</h2>
+
+<input id="email" type="text" placeholder="Correo"><br><br>
+<input id="password" type="password" placeholder="Contraseña"><br><br>
+
+<button onclick="crearCuenta()">Crear cuenta</button>
+<button onclick="iniciarSesion()">Iniciar sesión</button>
+
+<p id="msg"></p>
+
+<!-- 🔥 FIREBASE (IMPORTANTE) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+<script>
+/* 🔥 TU CONFIG FIREBASE */
+const firebaseConfig = {
+  apiKey: "AIzaSyAi9BOU-pJq9woc4YOb4_bp_LsjKaDYWrY",
+  authDomain: "petlife-bf923.firebaseapp.com",
+  projectId: "petlife-bf923",
+  storageBucket: "petlife-bf923.appspot.com",
+  messagingSenderId: "57850807076",
+  appId: "1:57850807076:web:b968c6c588319bd025e9b1"
+};
+
+/* INICIALIZAR */
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+
+/* 🔑 CREAR CUENTA */
+function crearCuenta(){
+
+const email = document.getElementById("email").value;
+const pass = document.getElementById("password").value;
+
+auth.createUserWithEmailAndPassword(email, pass)
+.then(user => {
+
+document.getElementById("msg").innerText =
+"Cuenta creada: " + user.user.email;
+
+localStorage.setItem("user", user.user.email);
+
+})
+.catch(err => {
+document.getElementById("msg").innerText = err.message;
+});
+
+}
+
+/* 🔑 INICIAR SESIÓN */
+function iniciarSesion(){
+
+const email = document.getElementById("email").value;
+const pass = document.getElementById("password").value;
+
+auth.signInWithEmailAndPassword(email, pass)
+.then(user => {
+
+document.getElementById("msg").innerText =
+"Bienvenido " + user.user.email;
+
+localStorage.setItem("user", user.user.email);
+
+/* ir a tu página principal */
+window.location.href = "index.html";
+
+})
+.catch(err => {
+document.getElementById("msg").innerText = err.message;
+});
+
+}
+</script>
+
+</body>
+</html>
