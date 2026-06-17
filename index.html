@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Veterinarios del Perú</title>
+
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial,sans-serif;
+}
+
+h1{
+text-align:center;
+background:#2e7d32;
+color:white;
+padding:15px;
+margin:0;
+}
+
+#map{
+height:90vh;
+width:100%;
+}
+
+</style>
+</head>
+<body>
+
+<h1>🐶 Veterinarios del Perú</h1>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+
+var map = L.map('map').setView([-9.19,-75.0152],6);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+maxZoom:19
+}).addTo(map);
+
+const consulta = `
+[out:json];
+area["name"="Peru"]->.searchArea;
+(
+node["amenity"="veterinary"](area.searchArea);
+way["amenity"="veterinary"](area.searchArea);
+relation["amenity"="veterinary"](area.searchArea);
+);
+out center;
+`;
+
+fetch("https://overpass-api.de/api/interpreter",{
+method:"POST",
+body:consulta
+})
+.then(res=>res.json())
+.then(data=>{
+
+data.elements.forEach(vet=>{
+
+let lat = vet.lat || vet.center?.lat;
+let lon = vet.lon || vet.center?.lon;
+
+if(!lat || !lon) return;
+
+let nombre = vet.tags?.name || "Veterinaria";
+let telefono = vet.tags?.phone || "No disponible";
+let direccion = vet.tags?.addr_street || "Dirección no disponible";
+
+L.marker([lat,lon])
+.addTo(map)
+.bindPopup(`
+<b>${nombre}</b><br>
+📍 ${direccion}<br>
+📞 ${telefono}
+`);
+
+});
+
+})
+.catch(error=>{
+console.error(error);
+});
+
+</script>
+
+</body>
+</html>
