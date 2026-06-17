@@ -2,42 +2,89 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PetLife Login</title>
+
+<style>
+body{
+margin:0;
+font-family:Arial;
+background:#140f0e;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+color:white;
+}
+
+.box{
+background:#2f201d;
+padding:20px;
+border-radius:12px;
+width:300px;
+text-align:center;
+border:2px solid #ff8c42;
+}
+
+input{
+width:100%;
+padding:10px;
+margin:8px 0;
+border-radius:8px;
+border:none;
+outline:none;
+}
+
+button{
+width:100%;
+padding:10px;
+margin-top:8px;
+border:none;
+border-radius:8px;
+background:#ff8c42;
+font-weight:bold;
+cursor:pointer;
+}
+
+h2{
+color:#ffb347;
+}
+</style>
 </head>
 
 <body>
 
+<div class="box">
 <h2>🐾 PetLife Login</h2>
 
-<input id="email" type="text" placeholder="Correo"><br><br>
-<input id="password" type="password" placeholder="Contraseña"><br><br>
+<input id="email" type="text" placeholder="Correo">
+<input id="password" type="password" placeholder="Contraseña">
 
 <button onclick="crearCuenta()">Crear cuenta</button>
 <button onclick="iniciarSesion()">Iniciar sesión</button>
 
 <p id="msg"></p>
+</div>
 
-<!-- 🔥 FIREBASE (IMPORTANTE) -->
+<!-- 🔥 FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 
 <script>
 /* 🔥 TU CONFIG FIREBASE */
 const firebaseConfig = {
-  apiKey: "AIzaSyAi9BOU-pJq9woc4YOb4_bp_LsjKaDYWrY",
-  authDomain: "petlife-bf923.firebaseapp.com",
-  projectId: "petlife-bf923",
-  storageBucket: "petlife-bf923.appspot.com",
-  messagingSenderId: "57850807076",
-  appId: "1:57850807076:web:b968c6c588319bd025e9b1"
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROYECTO.firebaseapp.com",
+  projectId: "TU_PROYECTO",
+  storageBucket: "TU_PROYECTO.appspot.com",
+  messagingSenderId: "TU_ID",
+  appId: "TU_APP_ID"
 };
 
-/* INICIALIZAR */
 firebase.initializeApp(firebaseConfig);
-
 const auth = firebase.auth();
 
-/* 🔑 CREAR CUENTA */
+/* 🟢 CREAR CUENTA */
 function crearCuenta(){
 
 const email = document.getElementById("email").value;
@@ -47,9 +94,14 @@ auth.createUserWithEmailAndPassword(email, pass)
 .then(user => {
 
 document.getElementById("msg").innerText =
-"Cuenta creada: " + user.user.email;
+"Cuenta creada ✔ " + user.user.email;
 
 localStorage.setItem("user", user.user.email);
+
+/* ir al mapa */
+setTimeout(()=>{
+window.location.href = "index.html";
+},1000);
 
 })
 .catch(err => {
@@ -58,7 +110,7 @@ document.getElementById("msg").innerText = err.message;
 
 }
 
-/* 🔑 INICIAR SESIÓN */
+/* 🔵 INICIAR SESIÓN */
 function iniciarSesion(){
 
 const email = document.getElementById("email").value;
@@ -68,12 +120,14 @@ auth.signInWithEmailAndPassword(email, pass)
 .then(user => {
 
 document.getElementById("msg").innerText =
-"Bienvenido " + user.user.email;
+"Bienvenido ✔ " + user.user.email;
 
 localStorage.setItem("user", user.user.email);
 
-/* ir a tu página principal */
+/* ir al mapa */
+setTimeout(()=>{
 window.location.href = "index.html";
+},1000);
 
 })
 .catch(err => {
