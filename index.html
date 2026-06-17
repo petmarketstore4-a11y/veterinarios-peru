@@ -4,93 +4,151 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>PetLife - Veterinarios Perú</title>
+<title>PetLife v6 MODO DIOS</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
 
+/* ===== BASE ===== */
 body{
 margin:0;
 font-family:Arial;
-background:#f4f6f8;
+background:#140f0e;
+color:white;
 }
 
 /* HEADER */
 header{
-background:#1e7d32;
-color:white;
-padding:15px;
+background:#3b2f2f;
+color:#ffb347;
+padding:12px;
 text-align:center;
-font-size:24px;
 font-weight:bold;
 }
 
-/* PANEL */
+/* TOP BAR */
 #panel{
 display:flex;
 flex-wrap:wrap;
-gap:8px;
+gap:6px;
 justify-content:center;
 padding:10px;
-background:white;
+background:#241a18;
+position:sticky;
+top:0;
+z-index:1000;
 }
 
 #panel input{
-padding:10px;
-width:220px;
+padding:8px;
+width:180px;
+border:none;
 border-radius:8px;
-border:1px solid #ccc;
+outline:none;
 }
 
 #panel button{
-padding:10px;
+padding:8px 10px;
 border:none;
 border-radius:8px;
-cursor:pointer;
-background:#1e7d32;
-color:white;
+background:#ff8c42;
+color:black;
 font-weight:bold;
-}
-
-#panel button:hover{
-opacity:0.9;
+cursor:pointer;
 }
 
 /* STATS */
-#estadisticas{
+#stats{
 text-align:center;
-padding:8px;
-background:white;
+padding:6px;
+background:#241a18;
+color:#ffb347;
 font-weight:bold;
 }
 
-/* MAP */
-#map{
+/* APP LAYOUT */
+.app{
+display:flex;
 height:80vh;
 width:100%;
 }
 
-/* PANEL INFO */
-#info{
-position:fixed;
-right:10px;
-top:120px;
-width:260px;
-background:white;
-padding:10px;
-border-radius:10px;
-box-shadow:0 2px 10px rgba(0,0,0,.2);
-display:none;
+/* MAP */
+#map{
+flex:2;
+height:100%;
 }
 
-@media(max-width:768px){
+/* SIDEBAR */
+#sidebar{
+flex:1;
+background:#1f1614;
+border-left:2px solid #ff8c42;
+display:flex;
+flex-direction:column;
+}
+
+/* CHAT / IA */
+#aiBox{
+padding:10px;
+border-bottom:1px solid #ff8c42;
+}
+
+#aiInput{
+width:100%;
+padding:8px;
+border-radius:8px;
+border:none;
+outline:none;
+}
+
+/* INFO */
 #info{
-position:relative;
-width:95%;
-margin:10px auto;
-top:auto;
-right:auto;
+padding:10px;
+overflow:auto;
+}
+
+/* CARD */
+.card{
+background:#2f201d;
+border:1px solid #ff8c42;
+padding:10px;
+border-radius:12px;
+margin-bottom:10px;
+cursor:pointer;
+transition:0.2s;
+}
+
+.card:hover{
+transform:scale(1.02);
+}
+
+/* BUTTONS */
+.btn{
+margin-top:6px;
+padding:6px 8px;
+border:none;
+border-radius:6px;
+background:#ff8c42;
+cursor:pointer;
+font-size:12px;
+}
+
+/* MOBILE */
+@media(max-width:768px){
+.app{
+flex-direction:column;
+}
+
+#map{
+height:55vh;
+}
+
+#sidebar{
+height:45vh;
+border-left:none;
+border-top:2px solid #ff8c42;
 }
 }
 
@@ -99,45 +157,64 @@ right:auto;
 
 <body>
 
-<header>🐾 PetLife Veterinarios Perú</header>
+<header>🐾 PetLife v6 MODO DIOS</header>
 
 <div id="panel">
-
-<input id="buscar" placeholder="Buscar veterinaria...">
-
-<button onclick="buscar()">🔍 Buscar</button>
-<button onclick="reset()">🇵🇪 Todo Perú</button>
-<button onclick="costa()">🌊 Costa</button>
-<button onclick="sierra()">🏔️ Sierra</button>
-<button onclick="selva()">🌴 Selva</button>
-<button onclick="geo()">📍 Cerca de mí</button>
-
+<input id="search" placeholder="Buscar veterinaria...">
+<button onclick="search()">🔍</button>
+<button onclick="reset()">🇵🇪</button>
+<button onclick="geo()">📍 IA</button>
 </div>
 
-<div id="estadisticas">
-📊 Veterinarias: <span id="contador">0</span>
-</div>
+<div id="stats">📊 cargando...</div>
+
+<div class="app">
 
 <div id="map"></div>
 
-<div id="info"></div>
+<div id="sidebar">
+
+<!-- 🧠 IA CHAT -->
+<div id="aiBox">
+<input id="aiInput" placeholder="Pregúntale a PetLife IA..." onkeydown="if(event.key==='Enter')askAI()">
+</div>
+
+<div id="info">Iniciando sistema IA...</div>
+
+</div>
+
+</div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
 
-const map = L.map('map').setView([-9.19,-75],6);
+/* MAP */
+const map = L.map('map').setView([-9.2,-75],6);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+.addTo(map);
 
-let markers = [];
+let markers=[];
 
-const query = `
+/* DIST */
+function dist(a,b,c,d){
+const R=6371;
+const dLat=(c-a)*Math.PI/180;
+const dLon=(d-b)*Math.PI/180;
+const x=
+Math.sin(dLat/2)**2+
+Math.cos(a*Math.PI/180)*
+Math.cos(c*Math.PI/180)*
+Math.sin(dLon/2)**2;
+return R*(2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x)));
+}
+
+/* DATA */
+const query=`
 [out:json][timeout:60];
 (
 node["amenity"="veterinary"](-18,-82,0,-68);
-way["amenity"="veterinary"](-18,-82,0,-68);
-relation["amenity"="veterinary"](-18,-82,0,-68);
 );
 out center;
 `;
@@ -157,79 +234,131 @@ const lat=v.lat||v.center?.lat;
 const lon=v.lon||v.center?.lon;
 if(!lat||!lon) return;
 
-const tags=v.tags||{};
-const name=(tags.name||"Veterinaria");
-
-count++;
+const name=v.tags?.name||"Veterinaria";
 
 let m=L.marker([lat,lon]).addTo(map);
 
-m.data={name,lat,lon,tags};
+m.data={lat,lon,name,tags:v.tags||{}};
 
 m.on("click",()=>show(m.data));
 
 markers.push(m);
+count++;
 
 });
 
-document.getElementById("contador").innerText=count;
+document.getElementById("stats").innerText=
+"📊 Veterinarias: "+count;
+
+/* IA AUTO */
+navigator.geolocation.getCurrentPosition(pos=>{
+recommend(pos.coords.latitude,pos.coords.longitude);
+});
 
 });
 
+/* SHOW */
 function show(v){
 
-document.getElementById("info").style.display="block";
+map.setView([v.lat,v.lon],15);
 
 document.getElementById("info").innerHTML=`
+<div class="card">
 <h3>🏥 ${v.name}</h3>
 📍 ${v.tags["addr:street"]||"No disponible"}<br>
-📞 ${v.tags.phone||"No disponible"}<br>
-🕒 ${v.tags.opening_hours||"No disponible"}<br>
-🌐 ${v.tags.website||"No disponible"}<br>
+📞 ${v.tags.phone||"No"}<br>
+🕒 ${v.tags.opening_hours||"No"}<br>
+
+<a target="_blank"
+href="https://www.google.com/maps?q=${v.lat},${v.lon}">
+<button class="btn">🧭 Cómo llegar</button>
+</a>
+
+<button class="btn" onclick="saveFav('${v.name}')">❤️ Favorito</button>
+
+</div>
 `;
-
-map.setView([v.lat,v.lon],15);
 }
 
-function clearMarkers(){
-markers.forEach(m=>map.removeLayer(m));
-markers=[];
+/* FAVORITOS */
+function saveFav(name){
+let fav=JSON.parse(localStorage.getItem("fav")||"[]");
+fav.push(name);
+localStorage.setItem("fav",JSON.stringify(fav));
+alert("Guardado ❤️");
 }
 
-function buscar(){
-let txt=document.getElementById("buscar").value.toLowerCase();
+/* SEARCH */
+function search(){
+let q=document.getElementById("search").value.toLowerCase();
 
 markers.forEach(m=>{
-if(m.data.name.toLowerCase().includes(txt)){
+if(m.data.name.toLowerCase().includes(q)){
 map.setView([m.data.lat,m.data.lon],15);
-m.openPopup();
 show(m.data);
 }
 });
 }
 
+/* RESET */
 function reset(){
-map.setView([-9.19,-75],6);
+map.setView([-9.2,-75],6);
 }
 
-function costa(){
-map.setView([-12,-76],6);
+/* IA ENGINE */
+function recommend(lat,lon){
+
+let list=[];
+
+markers.forEach(m=>{
+list.push({
+...m.data,
+d:dist(lat,lon,m.data.lat,m.data.lon)
+});
+});
+
+list.sort((a,b)=>a.d-b.d);
+
+let top=list.slice(0,3);
+
+document.getElementById("info").innerHTML=`
+<div class="card">
+<h3>🧠 IA PetLife</h3>
+${top.map(v=>`
+🏥 ${v.name}<br>
+📍 ${v.d.toFixed(1)} km<br><br>
+`).join("")}
+</div>
+`;
 }
 
-function sierra(){
-map.setView([-10,-74],6);
+/* IA CHAT */
+function askAI(){
+
+let q=document.getElementById("aiInput").value.toLowerCase();
+
+if(q.includes("cerca")){
+geo();
+}
+else if(q.includes("mejor")){
+geo();
+}
+else{
+document.getElementById("info").innerHTML=`
+<div class="card">
+🧠 IA:<br>
+Puedo ayudarte a encontrar veterinarias cercanas, usar el botón IA o buscar en el mapa.
+</div>
+`;
 }
 
-function selva(){
-map.setView([-5,-75],6);
 }
 
+/* GEO */
 function geo(){
 navigator.geolocation.getCurrentPosition(pos=>{
 map.setView([pos.coords.latitude,pos.coords.longitude],14);
-L.marker([pos.coords.latitude,pos.coords.longitude])
-.addTo(map)
-.bindPopup("📍 Tú").openPopup();
+recommend(pos.coords.latitude,pos.coords.longitude);
 });
 }
 
