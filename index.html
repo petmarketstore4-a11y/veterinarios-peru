@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>PetLife v11 Ultimate</title>
+<title>PetLife v13 Pro Maps</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
@@ -29,8 +29,8 @@ font-weight:bold;
 /* PANEL */
 #panel{
 display:flex;
-flex-wrap:wrap;
 gap:6px;
+flex-wrap:wrap;
 justify-content:center;
 padding:10px;
 background:#241a18;
@@ -41,10 +41,9 @@ z-index:1000;
 
 #panel input{
 padding:8px;
-width:180px;
 border:none;
 border-radius:8px;
-outline:none;
+width:180px;
 }
 
 #panel button{
@@ -52,45 +51,23 @@ padding:8px 10px;
 border:none;
 border-radius:8px;
 background:#ff8c42;
-color:black;
 font-weight:bold;
 cursor:pointer;
 }
 
-/* LOADING */
-#loading{
-position:absolute;
-top:50%;
-left:50%;
-transform:translate(-50%,-50%);
-background:#2a1f1f;
-padding:12px;
-border-radius:10px;
-z-index:2000;
-color:#ffb347;
-}
-
-/* APP */
+/* LAYOUT */
 .app{
 display:flex;
 height:80vh;
 }
 
-#map{
-flex:2;
-}
-
-#sidebar{
+#map{flex:2;}
+#info{
 flex:1;
 background:#1f1614;
-border-left:2px solid #ff8c42;
-display:flex;
-flex-direction:column;
-}
-
-#info{
 padding:10px;
 overflow:auto;
+border-left:2px solid #ff8c42;
 }
 
 /* CARD */
@@ -105,9 +82,9 @@ margin-bottom:10px;
 /* IMAGE */
 .vet-img{
 width:100%;
-height:120px;
-border-radius:10px;
+height:140px;
 object-fit:cover;
+border-radius:10px;
 margin-bottom:8px;
 }
 
@@ -121,112 +98,91 @@ cursor:pointer;
 margin-top:5px;
 }
 
+/* MOBILE */
 @media(max-width:768px){
 .app{flex-direction:column;}
 #map{height:55vh;}
-#sidebar{height:45vh;border-left:none;border-top:2px solid #ff8c42;}
+#info{height:45vh;}
 }
 
 </style>
+
 </head>
 
 <body>
 
-<header>🐾 PetLife v11 Ultimate IA</header>
+<header>🐾 PetLife v13 Pro Maps (Google Maps Clone)</header>
 
 <div id="panel">
 <input id="search" placeholder="Buscar veterinaria...">
-<button onclick="search()">🔍</button>
-<button onclick="geo()">📍 IA</button>
+<button onclick="buscar()">🔍</button>
 <button onclick="reset()">🇵🇪</button>
+<button onclick="geo()">📍 Cerca</button>
 </div>
-
-<div id="loading">⏳ Cargando veterinarias...</div>
 
 <div class="app">
-
 <div id="map"></div>
-
-<div id="sidebar">
 <div id="info">
-<div class="card">🧠 Iniciando IA...</div>
+<div class="card">🧠 Selecciona una veterinaria</div>
 </div>
-</div>
-
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
 
+/* MAPA */
 const map = L.map('map').setView([-9.2,-75],6);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
 .addTo(map);
 
-let markers=[];
+let markers = [];
 
-/* DIST */
-function dist(a,b,c,d){
-const R=6371;
-const dLat=(c-a)*Math.PI/180;
-const dLon=(d-b)*Math.PI/180;
-const x=
-Math.sin(dLat/2)**2+
-Math.cos(a*Math.PI/180)*
-Math.cos(c*Math.PI/180)*
-Math.sin(dLon/2)**2;
-return R*(2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x)));
-}
-
-/* FALLBACK SERVERS */
-const servers=[
-"https://overpass.kumi.systems/api/interpreter",
-"https://overpass-api.de/api/interpreter"
-];
-
-const query=`
-[out:json][timeout:25];
+/* DATA OPENSTREETMAP */
+const query = `
+[out:json][timeout:60];
 (
 node["amenity"="veterinary"](-18,-82,0,-68);
 );
 out center;
 `;
 
-async function loadData(){
+/* FUNCION DATOS INTELIGENTES */
+function smart(tags){
 
-for(let url of servers){
-try{
+return {
+dir:
+tags["addr:street"] ||
+tags["addr:city"] ||
+"📍 No registrada",
 
-const res = await fetch(url,{
+phone:
+tags.phone ||
+tags["contact:phone"] ||
+"📞 No registrado",
+
+hours:
+tags.opening_hours ||
+"🕒 No disponible",
+
+web:
+tags.website || null,
+fb:
+tags.facebook || null,
+ig:
+tags.instagram || null
+};
+
+}
+
+/* CARGA DATOS */
+fetch("https://overpass-api.de/api/interpreter",{
 method:"POST",
 body:query
-});
-
-if(!res.ok) continue;
-
-const data = await res.json();
-
-return data;
-
-}catch(e){
-console.log("fallback...");
-}
-}
-
-return null;
-}
-
-/* INIT */
-loadData().then(data=>{
-
-if(!data){
-document.getElementById("info").innerHTML=
-"<div class='card'>❌ Error cargando datos</div>";
-return;
-}
-
-let count=0;
+})
+.then(r=>r.json())
+.then(data=>{
 
 data.elements.forEach(v=>{
 
@@ -238,58 +194,70 @@ const name=v.tags?.name||"Veterinaria";
 
 let m=L.marker([lat,lon]).addTo(map);
 
-m.data={lat,lon,name,tags:v.tags||{}};
+m.data={lat,lon,name,tags:v.tags};
 
 m.on("click",()=>show(m.data));
 
 markers.push(m);
-count++;
 
 });
 
-document.getElementById("loading").style.display="none";
-
-document.getElementById("info").innerHTML=
-`<div class="card">🧠 IA lista | ${count} veterinarias</div>`;
-
 });
 
-/* SHOW */
+/* SHOW COMPLETO */
 function show(v){
 
-map.setView([v.lat,v.lon],15);
+map.setView([v.lat,v.lon],16);
 
-document.getElementById("info").innerHTML=`
+const d = smart(v.tags);
 
+const img = `https://source.unsplash.com/600x400/?veterinary,pet,clinic,${encodeURIComponent(v.name)}`;
+
+let redes = "";
+
+if(d.web) redes += `🌐 <a target="_blank" href="${d.web}">Web</a><br>`;
+if(d.fb) redes += `📘 Facebook<br>`;
+if(d.ig) redes += `📸 Instagram<br>`;
+if(!redes) redes = "🌐 Sin redes registradas";
+
+document.getElementById("info").innerHTML = `
 <div class="card">
 
-<img class="vet-img"
-src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee"
->
+<img class="vet-img" src="${img}" onerror="this.src='https://source.unsplash.com/600x400/?vet,animal'">
 
-<h3>🏥 ${v.name}</h3>
+<h2>🏥 ${v.name}</h2>
 
-📍 ${v.tags["addr:street"]||"No disponible"}<br>
-📞 ${v.tags.phone||"No disponible"}<br>
-🕒 ${v.tags.opening_hours||"No disponible"}<br>
+<p>🐾 Clínica veterinaria registrada en PetLife</p>
+
+<hr>
+
+📍 ${d.dir}<br>
+📞 ${d.phone}<br>
+🕒 ${d.hours}<br>
+
+<hr>
+
+<h3>🌐 Redes</h3>
+${redes}
 
 <a target="_blank"
-href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(v.name+' '+v.lat+','+v.lon)}">
+href="https://www.google.com/maps?q=${v.lat},${v.lon}">
 <button class="btn">🧭 Cómo llegar</button>
 </a>
 
 </div>
 `;
+
 }
 
-/* SEARCH */
-function search(){
+/* BUSCAR */
+function buscar(){
 
-let q=document.getElementById("search").value.toLowerCase();
+let q = document.getElementById("search").value.toLowerCase();
 
 markers.forEach(m=>{
 if(m.data.name.toLowerCase().includes(q)){
-map.setView([m.data.lat,m.data.lon],15);
+map.setView([m.data.lat,m.data.lon],16);
 show(m.data);
 }
 });
