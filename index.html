@@ -6,8 +6,7 @@
 
 <title>Veterinarios del Perú</title>
 
-<link rel="stylesheet"
-href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
 
@@ -16,24 +15,39 @@ margin:0;
 font-family:Arial,sans-serif;
 }
 
-h1{
-text-align:center;
+header{
 background:#2e7d32;
 color:white;
+text-align:center;
 padding:15px;
-margin:0;
+font-size:30px;
+font-weight:bold;
+}
+
+#info{
+background:#f5f5f5;
+padding:10px;
+text-align:center;
+font-weight:bold;
 }
 
 #map{
-height:90vh;
+height:85vh;
 width:100%;
 }
 
 </style>
+
 </head>
 <body>
 
-<h1>🐶 Veterinarios del Perú</h1>
+<header>
+🐶 Veterinarios del Perú
+</header>
+
+<div id="info">
+Cargando veterinarios...
+</div>
 
 <div id="map"></div>
 
@@ -41,19 +55,22 @@ width:100%;
 
 <script>
 
-var map = L.map('map').setView([-9.19,-75.0152],6);
+const map = L.map('map').setView([-9.19,-75.0152],6);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-maxZoom:19
-}).addTo(map);
+L.tileLayer(
+'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+{
+maxZoom:19,
+attribution:'© OpenStreetMap'
+}
+).addTo(map);
 
 const consulta = `
-[out:json];
-area["name"="Peru"]->.searchArea;
+[out:json][timeout:60];
 (
-node["amenity"="veterinary"](area.searchArea);
-way["amenity"="veterinary"](area.searchArea);
-relation["amenity"="veterinary"](area.searchArea);
+node["amenity"="veterinary"](-18,-82,0,-68);
+way["amenity"="veterinary"](-18,-82,0,-68);
+relation["amenity"="veterinary"](-18,-82,0,-68);
 );
 out center;
 `;
@@ -62,33 +79,54 @@ fetch("https://overpass-api.de/api/interpreter",{
 method:"POST",
 body:consulta
 })
-.then(res=>res.json())
-.then(data=>{
+.then(response => response.json())
+.then(data => {
 
-data.elements.forEach(vet=>{
+let contador = 0;
 
-let lat = vet.lat || vet.center?.lat;
-let lon = vet.lon || vet.center?.lon;
+data.elements.forEach(vet => {
+
+const lat = vet.lat || (vet.center && vet.center.lat);
+const lon = vet.lon || (vet.center && vet.center.lon);
 
 if(!lat || !lon) return;
 
-let nombre = vet.tags?.name || "Veterinaria";
-let telefono = vet.tags?.phone || "No disponible";
-let direccion = vet.tags?.addr_street || "Dirección no disponible";
+contador++;
+
+const nombre =
+vet.tags?.name ||
+"Veterinaria";
+
+const telefono =
+vet.tags?.phone ||
+"Sin teléfono";
+
+const direccion =
+vet.tags?.["addr:street"] ||
+vet.tags?.address ||
+"Dirección no disponible";
 
 L.marker([lat,lon])
 .addTo(map)
 .bindPopup(`
-<b>${nombre}</b><br>
-📍 ${direccion}<br>
-📞 ${telefono}
+<h3>${nombre}</h3>
+<p><b>Dirección:</b> ${direccion}</p>
+<p><b>Teléfono:</b> ${telefono}</p>
 `);
 
 });
 
+document.getElementById("info").innerHTML =
+"📍 Veterinarios encontrados: " + contador;
+
 })
-.catch(error=>{
+.catch(error => {
+
 console.error(error);
+
+document.getElementById("info").innerHTML =
+"❌ Error cargando veterinarios";
+
 });
 
 </script>
