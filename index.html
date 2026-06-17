@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Veterinarios del Perú</title>
+<title>PetMarket - Veterinarios Perú</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
@@ -13,26 +13,58 @@
 body{
 margin:0;
 font-family:Arial,sans-serif;
+background:#f5f5f5;
 }
 
 header{
 background:#2e7d32;
 color:white;
-text-align:center;
 padding:15px;
-font-size:30px;
+text-align:center;
+font-size:28px;
 font-weight:bold;
 }
 
-#info{
-background:#f5f5f5;
+#panel{
+padding:10px;
+background:white;
+display:flex;
+flex-wrap:wrap;
+gap:8px;
+justify-content:center;
+box-shadow:0 2px 8px rgba(0,0,0,.1);
+}
+
+#panel input{
+padding:10px;
+width:250px;
+border:1px solid #ccc;
+border-radius:8px;
+}
+
+#panel button{
+padding:10px 15px;
+border:none;
+border-radius:8px;
+cursor:pointer;
+background:#2e7d32;
+color:white;
+font-weight:bold;
+}
+
+#panel button:hover{
+opacity:.9;
+}
+
+#estadisticas{
 padding:10px;
 text-align:center;
 font-weight:bold;
+background:#fff;
 }
 
 #map{
-height:85vh;
+height:80vh;
 width:100%;
 }
 
@@ -42,11 +74,44 @@ width:100%;
 <body>
 
 <header>
-🐶 Veterinarios del Perú
+🐶 PetMarket - Veterinarios del Perú
 </header>
 
-<div id="info">
-Cargando veterinarios...
+<div id="panel">
+
+<input
+id="buscar"
+placeholder="Buscar veterinaria..."
+>
+
+<button onclick="buscarVeterinaria()">
+🔍 Buscar
+</button>
+
+<button onclick="mostrarTodos()">
+🇵🇪 Todo Perú
+</button>
+
+<button onclick="filtrarCosta()">
+🌊 Costa
+</button>
+
+<button onclick="filtrarSierra()">
+🏔️ Sierra
+</button>
+
+<button onclick="filtrarSelva()">
+🌴 Selva
+</button>
+
+<button onclick="miUbicacion()">
+📍 Cerca de mí
+</button>
+
+</div>
+
+<div id="estadisticas">
+📊 Veterinarias encontradas: <span id="contador">0</span>
 </div>
 
 <div id="map"></div>
@@ -55,15 +120,16 @@ Cargando veterinarios...
 
 <script>
 
-const map = L.map('map').setView([-9.19,-75.0152],6);
+const map = L.map('map').setView([-9.19,-75.01],6);
 
 L.tileLayer(
 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
 {
-maxZoom:19,
-attribution:'© OpenStreetMap'
+maxZoom:19
 }
 ).addTo(map);
+
+let marcadores = [];
 
 const consulta = `
 [out:json][timeout:60];
@@ -75,59 +141,161 @@ relation["amenity"="veterinary"](-18,-82,0,-68);
 out center;
 `;
 
-fetch("https://overpass-api.de/api/interpreter",{
+fetch(
+"https://overpass-api.de/api/interpreter",
+{
 method:"POST",
 body:consulta
-})
-.then(response => response.json())
+}
+)
+
+.then(res => res.json())
+
 .then(data => {
 
-let contador = 0;
+let total = 0;
 
 data.elements.forEach(vet => {
 
-const lat = vet.lat || (vet.center && vet.center.lat);
-const lon = vet.lon || (vet.center && vet.center.lon);
+const lat =
+vet.lat ||
+vet.center?.lat;
+
+const lon =
+vet.lon ||
+vet.center?.lon;
 
 if(!lat || !lon) return;
 
-contador++;
+total++;
 
-const nombre =
-vet.tags?.name ||
-"Veterinaria";
+const tags = vet.tags || {};
 
-const telefono =
-vet.tags?.phone ||
-"Sin teléfono";
+let contenido =
+`<h3>${tags.name || "Veterinaria"}</h3>`;
 
-const direccion =
-vet.tags?.["addr:street"] ||
-vet.tags?.address ||
-"Dirección no disponible";
+for(const clave in tags){
 
+contenido +=
+`<b>${clave}</b>: ${tags[clave]}<br>`;
+
+}
+
+const marker =
 L.marker([lat,lon])
 .addTo(map)
-.bindPopup(`
-<h3>${nombre}</h3>
-<p><b>Dirección:</b> ${direccion}</p>
-<p><b>Teléfono:</b> ${telefono}</p>
-`);
+.bindPopup(contenido);
+
+marker.nombre =
+(tags.name || "").toLowerCase();
+
+marcadores.push(marker);
 
 });
 
-document.getElementById("info").innerHTML =
-"📍 Veterinarios encontrados: " + contador;
+document.getElementById(
+"contador"
+).textContent = total;
 
 })
+
 .catch(error => {
 
 console.error(error);
 
-document.getElementById("info").innerHTML =
-"❌ Error cargando veterinarios";
+alert(
+"Error cargando veterinarios"
+);
 
 });
+
+function buscarVeterinaria(){
+
+const texto =
+document
+.getElementById("buscar")
+.value
+.toLowerCase();
+
+marcadores.forEach(m => {
+
+if(m.nombre.includes(texto)){
+
+map.setView(
+m.getLatLng(),
+15
+);
+
+m.openPopup();
+
+}
+
+});
+
+}
+
+function miUbicacion(){
+
+navigator.geolocation.getCurrentPosition(
+
+pos => {
+
+const lat =
+pos.coords.latitude;
+
+const lon =
+pos.coords.longitude;
+
+map.setView(
+[lat,lon],
+14
+);
+
+L.marker([lat,lon])
+.addTo(map)
+.bindPopup(
+"📍 Tu ubicación"
+)
+.openPopup();
+
+}
+
+);
+
+}
+
+function mostrarTodos(){
+
+map.setView(
+[-9.19,-75.01],
+6
+);
+
+}
+
+function filtrarCosta(){
+
+alert(
+"Filtro Costa listo para personalizar."
+);
+
+}
+
+function filtrarSierra(){
+
+alert(
+"Filtro Sierra listo para personalizar."
+);
+
+}
+
+function filtrarSelva(){
+
+alert(
+"Filtro Selva listo para personalizar."
+);
+
+}
 
 </script>
 
